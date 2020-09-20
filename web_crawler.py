@@ -42,7 +42,7 @@ def fetch(parent_url,url,depth=1,depth_count=1):
         return
     else:
         print("MIME type is text/html")
-        disk_download(parent_url, url, info)
+        disk_download(parent_url, info)
         
         # Getting all the links from the url page. 
         print("Finding all the links on" , url)
@@ -70,11 +70,10 @@ def fetch(parent_url,url,depth=1,depth_count=1):
 # if so it will redonwload the page.
 # parameters:
 # parent_url - url which help to find the father directory.
-# url - the url which being processed.
 # info - varible which hold the url content.
-def disk_download(parent_url,url, info):
+def disk_download(parent_url, info):
     file_name = "main.html"
-    
+    url = info.url
     # Setting basic directory if needed
     if os.path.exists("C:\\temp\\links"):
         pass
