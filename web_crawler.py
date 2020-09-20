@@ -5,6 +5,7 @@ import sys
 import getopt
 import csv
 import time
+from datetime import datetime
 from requests_html import HTMLSession
 
 # The main function of the script.
@@ -16,7 +17,8 @@ from requests_html import HTMLSession
 # url - the url which been processed.
 # depth - the depth value.
 # depth_count - counter which will count the depth (for the csv file).
-def fetch(parent_url,url,depth=1,depth_count=1):
+# current_time - HH:MM value which will be used to create csv file.
+def fetch(url,current_time,depth=1,parent_url=None,depth_count=1):
     # Checking if url is vaild
     if depth == 0:
         print ("minimum depth is 1.")
@@ -51,16 +53,16 @@ def fetch(parent_url,url,depth=1,depth_count=1):
         links = response.html.absolute_links
         print("Checking url links ratio...")
         ratio = page_ratio(url, links)
-        print("Saving the results to a csv file locate in: C:/temp/url_info.csv")
+        print("Saving the results to a csv file locate in: C:/temp/url_info-"+current_time+".csv")
         csv_row = [url,depth_count,ratio]
-        csv_outfile(csv_row)
+        csv_outfile(csv_row,current_time)
         
         # Running on the links we found from the given url if 
         # the depth is higher then 1.
         if depth > 1:
             for link in links:
                 print("\nWorking on link:", link)
-                fetch(url,link,depth-1,depth_count+1)
+                fetch(link,current_time,depth-1,url,depth_count+1)
         else: 
             return 
 
@@ -74,6 +76,7 @@ def fetch(parent_url,url,depth=1,depth_count=1):
 def disk_download(parent_url, info):
     file_name = "main.html"
     url = info.url
+    
     # Setting basic directory if needed
     if os.path.exists("C:\\temp\\links"):
         pass
@@ -83,16 +86,25 @@ def disk_download(parent_url, info):
         else:
             os.mkdir("C:\\temp")
             os.mkdir("C:\\temp\\links")
+            
     # Getting the parent directory path. 
     if parent_url != None:
         parent_dir = parent_url.split("//")[1]
         parent_dir = re.sub('[^a-zA-Z0-9\.]', '-', parent_dir)
+        # Checking if the path 
         for roots,dirs,files in os.walk("C:\\temp"):
             if parent_dir in dirs:
                 path = roots + "\\" + parent_dir
+            else:
+                pass
     else:
         path = "C:\\temp\\links" 
-
+    # If path varible is not set it becaue we couldn't create the parent directory.
+    try:
+        path
+    except:
+        print("We couldnt create the parent directory")   
+        exit()
     # Setting the dir url withour special charecters           
     dir_name = url.split("//")[1]
     dir_name=re.sub('[^a-zA-Z0-9\.]', '-', dir_name)
@@ -101,11 +113,17 @@ def disk_download(parent_url, info):
     # Checking we already downloaded the url
     if not os.path.exists(dir):
         print ("Saving the content of the url to a file")
-        os.mkdir(dir)
+        try:
+            os.mkdir(dir)
+        except:
+            print("Cant create directory",dir)
+            
         file_location = os.path.join(dir,file_name)
         with open(file_location,'w', encoding="utf-8") as inputfile:
             inputfile.write(info.text)
         return
+    
+    # If the url have downloaded I want to check if the page has updated
     else:
         print("The url already downloaded\nChecking if the page has modifide...")
         file_location = os.path.join(dir,file_name)
@@ -118,6 +136,10 @@ def disk_download(parent_url, info):
             print("The page is uptodate")
         return
 
+# page_ratio function will check the ratio between the main domain to the associate links.
+# parameters:
+# url - the main url.
+# links - list of links.
 def page_ratio(url,links):
     domain = url.split('/')[2]
     count = 0
@@ -130,29 +152,39 @@ def page_ratio(url,links):
             count += 1
     return round(domain_count/count,2)
 
-def csv_outfile(csv_row):
-    csv_file_path = "C:\\temp\\url_info.csv"
+# csv_outfile function will create or append to csv file the data that we gather on the url.
+# parameters:
+# csv_row - row that contain list with url, depth and ratio.
+# current_time - HH:MM value which will help to create a csv file.
+def csv_outfile(csv_row,current_time):
+    csv_file_path = "C:\\temp\\url_info-"+ current_time +".csv"
     header = ["url","depth","ratio"]
+    
+    # Checking if the csv file created
     if os.path.exists(csv_file_path):
         try:
-            with open('C:\\temp\\url_info.csv','a', newline='') as csv_outfile:
+            with open(csv_file_path,'a', newline='') as csv_outfile:
                 csv_writer = csv.writer(csv_outfile)
                 csv_writer.writerow(csv_row)
+                return
         except Exception as e:
             print(e)
             exit()
     else: 
         try:
-            with open('C:\\temp\\url_info.csv','w', newline='') as csv_outfile:
+            with open(csv_file_path,'w', newline='') as csv_outfile:
                 csv_writer = csv.writer(csv_outfile)
                 csv_writer.writerow(header)
                 csv_writer.writerow(csv_row) 
+                return
         except Exception as e:
             print(e)
             exit()
             
 def main ():
     url_list = list()  
+    now = datetime.now()
+    current_time = now.strftime("%H-%M")
     argv = sys.argv[1:]
     
     # Checking if the user enterd the right parameters.
@@ -179,10 +211,9 @@ def main ():
     # Setting url list and start to run on the given urls.
     url_list.extend(urls.split(','))
     for url in url_list:
-        parent_url = None # Setting the parent url to none in the first run.
         if url.find("http") < 0 :
             url = "https://" + url
         print("\nWorking on url:",url)
-        fetch(parent_url,url,depth)
+        fetch(url,current_time,depth)
                
 main()
